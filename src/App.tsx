@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Activity, CalendarDays, Check, Clock3, FolderKanban, GripVertical, LayoutDashboard, Plus, Users, X } from 'lucide-react'
+import { Activity, CalendarDays, Check, Clock3, FolderKanban, GripVertical, LayoutDashboard, Plus, Trash2, Users, X } from 'lucide-react'
 
 type Status = 'todo' | 'doing' | 'done'
 type Person = { id: string; name: string }
@@ -49,6 +49,7 @@ export default function App() {
   const [dragId, setDragId] = useState<string | null>(null)
   const [modal, setModal] = useState<'task' | 'project' | 'group' | null>(null)
   const [selectedProject, setSelectedProject] = useState('pr1')
+  const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null)
 
   const projectMap = useMemo(() => Object.fromEntries(projects.map(p => [p.id, p])), [projects])
   const groupMap = useMemo(() => Object.fromEntries(groups.map(g => [g.id, g])), [groups])
@@ -64,6 +65,13 @@ export default function App() {
     setDragId(null)
   }
 
+  const deleteProject = (projectId: string) => {
+    setProjects(prev => prev.filter(p => p.id !== projectId))
+    setTasks(prev => prev.filter(t => t.projectId !== projectId))
+    setHistory(prev => prev.filter(h => h.projectId !== projectId))
+    if (selectedProject === projectId) setSelectedProject(projects.find(p => p.id !== projectId)?.id || '')
+    setDeleteProjectId(null)
+  }
   const addGroup = (name: string) => { if (name.trim()) setGroups(g => [...g, { id: uid('g'), name: name.trim() }]); setModal(null) }
   const addTask = (title: string, projectId: string, groupId: string, assigneeId: string) => { if (title.trim()) setTasks(t => [...t, { id: uid('t'), title: title.trim(), projectId, status: 'todo', groupId, assigneeId, createdAt: new Date().toISOString().slice(0, 10) }]); setModal(null) }
   const addProject = (name: string, start: string, end: string, groupId: string) => { if (name.trim()) { const id = uid('pr'); setProjects(p => [...p, { id, name: name.trim(), start, end, groupId, ownerId: people[0].id }]); setSelectedProject(id) }; setModal(null) }
@@ -80,7 +88,7 @@ export default function App() {
 
       {page === 'board' && <>
         <section className="mb-6 grid grid-cols-2 lg:grid-cols-4 gap-3">{[['پروژه‌ها',projects.length],['تسک‌ها',tasks.length],['انجام شده',tasks.filter(t=>t.status==='done').length],['میانگین پیشرفت',`${overallProgress}٪`]].map(([label,value])=><div key={label as string} className="rounded-2xl border border-white/10 bg-[#10121a] p-4"><p className="text-xs text-slate-500">{label}</p><strong className="mt-2 block text-2xl text-white">{value}</strong></div>)}</section>
-        <section className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-3">{projects.map(p=><div key={p.id} className="rounded-2xl border border-white/10 bg-[#10121a] p-4"><div className="flex justify-between gap-3"><div><p className="text-xs text-slate-500">پیشرفت پروژه</p><h3 className="mt-1 font-bold text-white">{p.name}</h3></div><b className="text-violet-300">{progressMap[p.id]}٪</b></div><div className="mt-3 h-2 rounded-full bg-white/10 overflow-hidden"><div className="h-full rounded-full bg-violet-500 transition-all" style={{width:`${progressMap[p.id]}%`}}/></div><p className="mt-2 text-[10px] text-slate-600">۰٪ انتظار · ۵۰٪ در حال انجام · ۱۰۰٪ انجام شده</p></div>)}</section>
+        <section className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-3">{projects.map(p=><div key={p.id} className="rounded-2xl border border-white/10 bg-[#10121a] p-4"><div className="flex justify-between gap-3"><div><p className="text-xs text-slate-500">پیشرفت پروژه</p><h3 className="mt-1 font-bold text-white">{p.name}</h3></div><div className="flex items-start gap-2"><b className="text-violet-300">{progressMap[p.id]}٪</b><button title="حذف پروژه" onClick={()=>setDeleteProjectId(p.id)} className="rounded-lg p-1 text-slate-600 hover:bg-red-500/10 hover:text-red-400"><Trash2 size={16}/></button></div></div><div className="mt-3 h-2 rounded-full bg-white/10 overflow-hidden"><div className="h-full rounded-full bg-violet-500 transition-all" style={{width:`${progressMap[p.id]}%`}}/></div><p className="mt-2 text-[10px] text-slate-600">۰٪ انتظار · ۵۰٪ در حال انجام · ۱۰۰٪ انجام شده</p></div>)}</section>
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-5">{(Object.keys(statusMeta) as Status[]).map(status => <div key={status} onDragOver={e=>e.preventDefault()} onDrop={()=>dragId && moveTask(dragId,status)} className="min-h-[460px] rounded-2xl border border-white/10 bg-[#0f1118] p-4"><div className="mb-4 flex items-center justify-between"><div className="flex items-center gap-2"><span className={`h-2.5 w-2.5 rounded-full ${statusMeta[status].dot}`}/><h2 className="font-bold text-white">{statusMeta[status].title}</h2></div><span className="rounded-full bg-white/5 px-2.5 py-1 text-xs text-slate-500">{tasks.filter(t=>t.status===status).length}</span></div><div className="space-y-3">{tasks.filter(t=>t.status===status).map(task => <article key={task.id} draggable onDragStart={()=>setDragId(task.id)} className="cursor-grab rounded-xl border border-white/10 bg-[#171923] p-4 shadow-lg active:cursor-grabbing"><div className="flex items-start gap-2"><GripVertical size={17} className="mt-0.5 text-slate-600"/><div className="flex-1"><h3 className="font-semibold text-white">{task.title}</h3><p className="mt-1 text-xs text-slate-500">{projectMap[task.projectId]?.name}</p><div className="mt-3 flex flex-wrap gap-1.5"><span className="chip">{groupMap[task.groupId]?.name}</span><span className="chip">{personMap[task.assigneeId]?.name}</span></div></div></div><div className="mt-3 flex items-center justify-between text-xs text-slate-500"><span>شروع: {fmt(task.createdAt)}</span>{task.completedAt && <span className="text-emerald-400">✓ {fmt(task.completedAt)}</span>}</div></article>)}</div></div>)}</section>
       </>}
       {page === 'timeline' && <Timeline projects={projects} progressMap={progressMap}/>} 
@@ -88,6 +96,7 @@ export default function App() {
     </main>
 
     {modal && <Modal title={modal==='task'?'ساخت تسک جدید':modal==='project'?'ساخت پروژه جدید':'ساخت گروه جدید'} onClose={()=>setModal(null)}>{modal==='task' ? <TaskForm projects={projects} groups={groups} people={people} selectedProject={selectedProject} onSubmit={addTask}/> : modal==='project' ? <ProjectForm groups={groups} onSubmit={addProject}/> : <GroupForm onSubmit={addGroup}/>}</Modal>}
+    {deleteProjectId && <Modal title="حذف پروژه" onClose={()=>setDeleteProjectId(null)}><div className="space-y-4"><div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4"><p className="font-semibold text-white">آیا مطمئنی؟</p><p className="mt-2 text-sm leading-6 text-slate-400">با حذف «{projectMap[deleteProjectId]?.name}»، تمام تسک‌های مرتبط با این پروژه و فعالیت‌های ثبت‌شده آن نیز حذف می‌شوند. این عملیات قابل بازگشت نیست.</p></div><div className="flex gap-2"><button onClick={()=>setDeleteProjectId(null)} className="btn-secondary flex-1 justify-center">انصراف</button><button onClick={()=>deleteProject(deleteProjectId)} className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-red-500">حذف پروژه</button></div></div></Modal>}
     <style>{`.btn-primary,.btn-secondary{display:flex;align-items:center;gap:7px;border-radius:12px;padding:10px 14px;font-size:13px;font-weight:700}.btn-primary{background:#7c3aed;color:white}.btn-secondary{border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#cbd5e1}.chip{display:inline-flex;border-radius:999px;background:rgba(255,255,255,.06);padding:4px 8px;font-size:10px;color:#94a3b8}.field{width:100%;border:1px solid rgba(255,255,255,.1);background:#0b0d12;color:#e2e8f0;border-radius:10px;padding:10px;outline:none}.field:focus{border-color:#7c3aed}`}</style>
   </div>
 }
